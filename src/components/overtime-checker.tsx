@@ -10,10 +10,11 @@ export const OverTimeChecker: React.VFC = () => {
     const [startTime, setStartTime] = useState('10:00');
     const [startHour, setStartHour] = useState(10);
     const [startMin, setStartMin] = useState(0);
+    const [isClick, setIsClick] = useState(false);
     const [selectOperation, setSelectOperation] = useState(1);
-    const displayOperationData = useMemo(() => {
-        return operationsList.find((v) => v.value === selectOperation);
-    }, [selectOperation]);
+    // const displayOperationData = useMemo(() => {
+    //     return operationsList.find((v) => v.value === selectOperation);
+    // }, [selectOperation]);
     const [overTime, setOverTime] = useState('');
     const [totalOverTime, setTotalOverTime] = useState('');
 
@@ -34,7 +35,6 @@ export const OverTimeChecker: React.VFC = () => {
         setStartTime(startTime2);
         setStartHour(operationsList[changeValue - 1].hour);
         setStartMin(0);
-        console.log("startMin", startHour, startMin);
     }, [selectOperation, startTime, startHour, startMin]);
 
     // 退勤ボタン押下処理
@@ -44,8 +44,8 @@ export const OverTimeChecker: React.VFC = () => {
         const min = data.getMinutes();
         let overTimeHour = hour - startHour - 9;
         let overTimeMin = min - startMin;
-        let totalMin = Number(localStorage.getItem('totalOverMin'));
-        let totalHour = Number(localStorage.getItem('totalOverHour'));
+        const totalMin = Number(localStorage.getItem('totalOverMin'));
+        const totalHour = Number(localStorage.getItem('totalOverHour'));
         if (overTimeMin < 0) {
             overTimeMin += 60;
             overTimeHour--;
@@ -57,11 +57,40 @@ export const OverTimeChecker: React.VFC = () => {
             overTimeMin >= 0) {
             setOverTime(String(overTimeMin + '分残業しました'));
         } else {
-            window.alert('まだ定時じゃありません。');
+            window.alert('まだ定時ではありません。');
             return;
         }
         localStorage.setItem('totalOverMin', String(totalMin + overTimeMin));
         localStorage.setItem('totalOverHour', String(totalHour + overTimeHour));
+        localStorage.setItem('todayOverMin', String(overTimeMin));
+        localStorage.setItem('todayOverHour', String(overTimeHour));
+        setIsClick(true);
+    }, [overTime, startHour, startMin]);
+
+    // もう一度退勤ボタンを押したときの処理
+    const handleContinue = useCallback(() => {
+        const todayTimeHour = Number(localStorage.getItem('todayOverHour'));
+        const todayTimeMin = Number(localStorage.getItem('todayOverMin'));
+        const totalMin = Number(localStorage.getItem('totalOverMin'));
+        const totalHour = Number(localStorage.getItem('totalOverHour'));
+        let overTimeHour = totalHour - todayTimeHour;
+        let overTimeMin = totalMin - todayTimeMin;
+        if (overTimeMin < 0) {
+            overTimeMin += 60;
+            overTimeHour--;
+        }
+        if (overTimeHour > 0 &&
+            overTimeMin >= 0) {
+            localStorage.setItem('totalOverMin', String(overTimeMin));
+            localStorage.setItem('totalOverHour', String(overTimeHour));
+        } else if (overTimeHour === 0 &&
+            overTimeMin >= 0) {
+            localStorage.setItem('totalOverMin', String(overTimeMin));
+        } else {
+            window.alert('まだ定時ではありません。');
+            return;
+        }
+        handleLeavingWork();
     }, [overTime, startHour, startMin]);
 
     // 出勤時間変更処理
@@ -77,7 +106,7 @@ export const OverTimeChecker: React.VFC = () => {
         setStartTime(timeValue);
         setStartHour(hour);
         setStartMin(min);
-    }, [startTime, startHour, startMin])
+    }, [startTime, startHour, startMin]);
 
     useEffect(() => {
         let totalMin = Number(localStorage.getItem('totalOverMin'));
@@ -108,8 +137,15 @@ export const OverTimeChecker: React.VFC = () => {
         // localStorage.clear();
     }, [overTime])
 
+    useEffect(() => {
+        document.body.style.backgroundColor = "#000000"
+        return () => {
+            document.body.style.backgroundColor = "#000000"
+        }
+    }, []);
+
     return (
-        <div style={{ display: 'flex', padding: '1rem', alignItems: 'center', gap: '4px', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', padding: '1rem', alignItems: 'center', gap: '4px', flexDirection: 'column', color: '#FFFFFF' }}>
             <h1>残業チェッカー</h1>
             <section>
                 <select value={selectOperation} onChange={handlePullChange}>
@@ -121,9 +157,9 @@ export const OverTimeChecker: React.VFC = () => {
                 </select>
             </section>
             <input type="time" value={startTime} onChange={handleTimeChange}></input>
-            <button onClick={handleLeavingWork}>退勤</button>
+            <button onClick={isClick ? handleContinue : handleLeavingWork}>退勤</button>
             <h4>{overTime}</h4>
-            <h2>{totalOverTime}</h2>
+            <h2 style={{ color: Number(localStorage.getItem('totalOverHour')) >= 10 ? '#FF0000' : '#FFFFFF' }}>{'残業時間：' + totalOverTime}</h2>
         </div>
     );
 }
