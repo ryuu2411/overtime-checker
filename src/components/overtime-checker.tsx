@@ -64,6 +64,8 @@ export const OverTimeChecker: React.VFC = () => {
         localStorage.setItem('totalOverHour', String(totalHour + overTimeHour));
         localStorage.setItem('todayOverMin', String(overTimeMin));
         localStorage.setItem('todayOverHour', String(overTimeHour));
+        const loginTime = new Date();
+        localStorage.setItem('loginTime', String(loginTime.getTime()));
         setIsClick(true);
     }, [overTime, startHour, startMin]);
 
@@ -75,17 +77,18 @@ export const OverTimeChecker: React.VFC = () => {
         const totalHour = Number(localStorage.getItem('totalOverHour'));
         let overTimeHour = totalHour - todayTimeHour;
         let overTimeMin = totalMin - todayTimeMin;
-        if (overTimeMin < 0) {
+        if (overTimeMin < 0 && overTimeHour >= 1) {
             overTimeMin += 60;
             overTimeHour--;
         }
-        if (overTimeHour > 0 &&
-            overTimeMin >= 0) {
+        if ((overTimeHour > 0 &&
+            overTimeMin >= 0) ||
+            (overTimeHour === 0 &&
+                overTimeMin >= 0)) {
             localStorage.setItem('totalOverMin', String(overTimeMin));
             localStorage.setItem('totalOverHour', String(overTimeHour));
-        } else if (overTimeHour === 0 &&
-            overTimeMin >= 0) {
-            localStorage.setItem('totalOverMin', String(overTimeMin));
+            localStorage.removeItem('todayOverHour');
+            localStorage.removeItem('todayOverMin');
         } else {
             window.alert('まだ定時ではありません。');
             return;
@@ -107,6 +110,46 @@ export const OverTimeChecker: React.VFC = () => {
         setStartHour(hour);
         setStartMin(min);
     }, [startTime, startHour, startMin]);
+
+    const resetCheck = useCallback(() => {
+        const loginTime = Number(localStorage.getItem('loginTime'));
+        if (loginTime) {
+            const todayTimeMin = Number(localStorage.getItem('todayOverMin'));
+            const saveDate = new Date(loginTime);
+            const today = new Date();
+            let saveDateEnd = new Date(saveDate.getFullYear(), saveDate.getMonth(), saveDate.getDate() + 1, 3, 59, 59);
+            if (saveDate.getHours() < 4) {
+                saveDateEnd = new Date(saveDate.getFullYear(), saveDate.getMonth(), saveDate.getDate(), 3, 59, 59);
+            }
+            if (today > saveDateEnd) {
+                localStorage.removeItem('loginTime');
+                localStorage.removeItem('todayOverHour');
+                localStorage.removeItem('todayOverMin');
+                resetOverTime();
+            } else if (todayTimeMin) {
+                setIsClick(true);
+            }
+        }
+    }, [isClick]);
+
+    const resetOverTime = useCallback(() => {
+        const overtimeYear = Number(localStorage.getItem('overTimeYear'));
+        const overtimeMonth = Number(localStorage.getItem('overTimeMonth'));
+        const today = new Date();
+        if (!overtimeYear) {
+            localStorage.setItem('overTimeYear', String(today.getFullYear()));
+            localStorage.setItem('overTimeMonth', String(today.getMonth()));
+        } else if (
+            (overtimeMonth > today.getMonth() &&
+                today.getDate() > 15) ||
+            (overtimeYear > today.getFullYear() &&
+                today.getDate() > 15)
+        ) {
+            localStorage.clear();
+            localStorage.setItem('overTimeYear', String(today.getFullYear()));
+            localStorage.setItem('overTimeMonth', String(today.getMonth()));
+        }
+    }, [])
 
     useEffect(() => {
         let totalMin = Number(localStorage.getItem('totalOverMin'));
@@ -134,10 +177,10 @@ export const OverTimeChecker: React.VFC = () => {
             }
         }
         setTotalOverTime(totalHourStr + ':' + totalMinStr);
-        // localStorage.clear();
     }, [overTime])
 
     useEffect(() => {
+        resetCheck();
         document.body.style.backgroundColor = "#000000"
         return () => {
             document.body.style.backgroundColor = "#000000"
